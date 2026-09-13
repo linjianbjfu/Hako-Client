@@ -97,7 +97,7 @@ struct HakoTVMoreHub: View {
 
      
      
-    static func proxyShareValue(defaults: UserDefaults? = UserDefaults(suiteName: HakoAppIdentifiers.appGroup)) -> String {
+    static func proxyShareValue(defaults: UserDefaults? = UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName)) -> String {
         HakoTVProxySharePresentation.rowValue(permitted: LocalNetworkPermission.isPermitted(defaults))
     }
 

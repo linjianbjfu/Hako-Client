@@ -54,7 +54,7 @@ enum GeoResource: String, CaseIterable, Identifiable {
  
 enum GeoResourceSettings {
     static var appGroupDefaults: UserDefaults {
-        UserDefaults(suiteName: HakoAppIdentifiers.appGroup) ?? .standard
+        UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName) ?? .standard
     }
 
     private static func urlKey(_ resource: GeoResource) -> String {

@@ -89,6 +89,27 @@ Tests cover authenticated and anonymous HTTP/SOCKS5, port conflicts, shutdown, p
 
 For changes shared with iOS or tvOS, identify affected targets in `project.yml` and available SDKs. The arm64-only macOS framework cannot validate other platforms. Report a missing SDK slice or signing capability as a validation limit rather than claiming all Apple platforms pass.
 
+## Local storage and migration checks
+
+The storage check compiles the actual shared storage resolver without App Group entitlements and uses an isolated temporary home. It verifies that local storage never calls the protected group resolver, including after a directory creation failure:
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcrun swiftc apple/HakoClient/Shared/HakoAppIdentifiers.swift \
+  apple/HakoClient/Shared/HakoAppGroupContainer.swift \
+  scripts/test_macos_storage.swift -o .build/test-macos-storage
+.build/test-macos-storage
+```
+
+Migration tests use temporary files and a unique, cleaned-up preferences domain. They cover path rewriting, preserved originals, refused overwrites, symlinks, failed preference imports and a real macOS `defaults` round trip:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
+  -s scripts -p 'test_migrate_macos_data.py' -v
+```
+
+These checks do not migrate user data or prove that Finder launches are prompt-free. The README pair owns the user migration command and verification steps.
+
 ## Runtime facts worth preserving
 
 - The containing app uses the core for configuration work; a standalone proxy runs in a separate process. Check the pinned SDK before changing setup/cache policy or merging those lifecycles.
@@ -98,6 +119,7 @@ For changes shared with iOS or tvOS, identify affected targets in `project.yml` 
 - Test fixtures own their children and temporary roots. Do not use broad `pkill`, the user's running port 7890, or real shared containers for ordinary tests.
 - Keep server resources inside its owned working directory. Preserve ordered DNS policy semantics when rewriting configurations; do not round-trip the entire document through an unordered dictionary.
 - SwiftUI/Combine publications can happen before a property stores its new value. Prefer emitted values when rendering changes; gate asynchronous results by their current operation/service generation.
+- macOS builds without the configured App Group entitlement use `~/.clashhako/` and the ordinary `<bundle-id>.local` preferences domain. They must not probe the protected group or import it during startup. `scripts/migrate_macos_data.py` copies data explicitly while the app is stopped; use temporary fixtures for migration tests.
 - CloudKit, App Groups, synchronized Keychain, Network Extension and local-network access have different capability requirements. Read signed entitlements and the actual system error before attributing a failure to one of them.
 - A terminal-launched executable can inherit a different privacy attribution from a Finder-launched app. State the launch method and do not treat a terminal smoke as proof of a prompt-free Finder launch.
 

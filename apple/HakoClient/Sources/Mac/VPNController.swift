@@ -132,7 +132,7 @@ final class VPNController: ObservableObject, DNSOnlyTunnelControlling {
 
     init(
         preferences: UserDefaults? = UserDefaults(
-            suiteName: HakoAppIdentifiers.appGroup
+            suiteName: HakoAppIdentifiers.preferencesSuiteName
         )
     ) {
         self.preferences = preferences ?? .standard

@@ -121,7 +121,7 @@ struct HakoSystemHandoff {
     private let notificationCenter: NotificationCenter
 
     init(
-        defaults: UserDefaults = UserDefaults(suiteName: appGroupIdentifier) ?? .standard,
+        defaults: UserDefaults = UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName) ?? .standard,
         notificationCenter: NotificationCenter = .default
     ) {
         self.defaults = defaults

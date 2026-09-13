@@ -86,6 +86,33 @@ python3 scripts/test_proxy_server.py \
 
 The test covers HTTP/SOCKS5, authentication, port conflicts, shutdown/restart, routing rules, file providers, transfer rates and idle reset. Add `--lan-host YOUR_MAC_LAN_IP` to verify the LAN listener address.
 
+### Local macOS data and migration
+
+macOS builds without the configured App Group entitlement store files in `~/.clashhako/`, including `working/` and `logs/`. Their settings use the ordinary `org.example.hako.local` preference domain (or `<your-bundle-id>.local` when customized). Builds with the matching App Group entitlement retain their shared container for VPN and Widget data. iOS and tvOS storage is unchanged.
+
+With the default bundle ID, the paths are:
+
+| Contents | Path |
+| --- | --- |
+| Original data, retained after migration | `~/Library/Group Containers/group.org.example.hako/` |
+| Local configuration and resources | `~/.clashhako/working/` |
+| Local logs | `~/.clashhako/logs/` |
+| Local preferences | `~/Library/Preferences/org.example.hako.local.plist` |
+
+Preferences are imported through macOS `defaults`; no manual plist editing is needed. Usernames and passwords remain in Keychain.
+
+To migrate an existing local build, **quit Clash and stop its VPN/proxy service before opening the new build**, then run from the repository root:
+
+```sh
+python3 scripts/migrate_macos_data.py
+```
+
+The command copies the old App Group directory, imports settings into the local domain, and updates absolute paths in JSON/YAML/plist files. It retains the original directory and Keychain entries, skips temporary files and container metadata, and refuses to overwrite an existing destination or local settings. Preference recovery copies are stored under `~/.clashhako/migration/`; they may contain private settings and should not be shared. If the new build has already created `~/.clashhako/`, preserve that directory and its local settings before attempting a migration.
+
+After `Migration complete`, open `.build/macos-arm64/DerivedData/Build/Products/Release/Clash.app`. Check that profiles, node selections, outbound mode and independent proxy settings were restored. An enabled independent proxy should resume listening. Quit and launch the app again from Finder to check whether the App Data prompt recurs. Retain the original directory until verification is complete.
+
+The local build does not automatically inspect or migrate the protected old container. This avoids the confirmed App Data permission trigger; a prompt-free Finder launch still needs runtime verification. It does not suppress other macOS permissions such as Local Network access. Signing with App Group access later selects the shared container again; it does not automatically copy local changes back.
+
 ### Sign your own build
 
 Set your own bundle identifier family and Apple Developer Team ID:

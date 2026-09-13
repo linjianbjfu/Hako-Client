@@ -59,7 +59,7 @@ enum ClientUserAgent {
     private static let maximumBytes = 512
 
     static var appGroupDefaults: UserDefaults {
-        UserDefaults(suiteName: HakoAppIdentifiers.appGroup) ?? .standard
+        UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName) ?? .standard
     }
 
     static func preset(from d: UserDefaults = appGroupDefaults) -> Preset {

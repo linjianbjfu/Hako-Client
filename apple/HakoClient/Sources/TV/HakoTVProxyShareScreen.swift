@@ -45,7 +45,7 @@ struct HakoTVProxyShareScreen: View {
         state: Binding<HakoTVProductState>,
         tunnel: HakoTVTunnelController,
         model: ProxyShareModel? = nil,
-        permissionDefaults: UserDefaults? = UserDefaults(suiteName: HakoAppIdentifiers.appGroup)
+        permissionDefaults: UserDefaults? = UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName)
     ) {
         _state = state
         self.tunnel = tunnel

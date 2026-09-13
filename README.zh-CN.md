@@ -86,6 +86,33 @@ python3 scripts/test_proxy_server.py \
 
 测试使用本机 HTTP 站点，覆盖 HTTP/SOCKS5、认证、端口冲突、停止和重启、配置规则、节点文件，以及上传下载速率和空闲归零。添加 `--lan-host 本机局域网IP` 可验证局域网监听地址。
 
+### macOS 本地数据与迁移
+
+没有配置 App Group 权限的 macOS 构建使用 `~/.clashhako/` 保存文件，其中包括 `working/` 和 `logs/`。偏好设置使用普通本地域 `org.example.hako.local`（自定义 Bundle ID 时为 `<Bundle ID>.local`）。具备对应 App Group 权限的签名版本继续使用共享容器，以便 VPN 和 Widget 共享数据。iOS 和 tvOS 的存储方式保持不变。
+
+默认 Bundle ID 对应的路径如下：
+
+| 内容 | 路径 |
+| --- | --- |
+| 旧数据（迁移后保留） | `~/Library/Group Containers/group.org.example.hako/` |
+| 新配置与资源 | `~/.clashhako/working/` |
+| 新日志 | `~/.clashhako/logs/` |
+| 本地偏好设置 | `~/Library/Preferences/org.example.hako.local.plist` |
+
+偏好设置通过 macOS `defaults` 接口导入，不需要手动编辑 plist。用户名和密码仍由钥匙串管理。
+
+迁移已有本地版本时，**先退出 Clash 并停止其 VPN／代理服务，在打开新版之前**，从工程根目录运行：
+
+```sh
+python3 scripts/migrate_macos_data.py
+```
+
+命令会复制旧 App Group 目录、导入偏好设置，并更新 JSON／YAML／plist 文件中指向旧目录的绝对路径。原目录和钥匙串内容会保留，临时文件与系统容器元数据不会复制。目标目录或本地偏好设置已存在时，命令会停止，避免覆盖。偏好设置的恢复副本保存在 `~/.clashhako/migration/`，其中可能包含私密设置，请勿分享。如果已经打开新版并生成了 `~/.clashhako/`，请先保留该目录和本地设置，再处理迁移。
+
+看到 `Migration complete` 后，打开 `.build/macos-arm64/DerivedData/Build/Products/Release/Clash.app`。确认原配置、节点选择、出站模式和独立代理设置已恢复；如果原来启用了独立代理，应恢复监听。退出应用再双击打开一次，检查是否仍出现“访问其他 App 数据”提示。验证完成前，请保留旧目录。
+
+本地构建不会自动读取或迁移旧的受保护容器，从而避开已确认的“访问其他 App 数据”提示触发点；双击启动是否不再弹窗，仍需实际验证。局域网访问等其他系统权限提示不会因此关闭。以后使用具备 App Group 权限的签名版本时，会重新选择共享容器，不会自动同步本地目录中的新数据。
+
 ### 签名自己的构建
 
 设置自己的 Bundle ID 前缀与 Apple Developer Team ID：

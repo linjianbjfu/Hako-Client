@@ -9,7 +9,7 @@ enum DelayTestSettings {
     static let key = "nodes.delayTestURL"
 
     static var appGroupDefaults: UserDefaults {
-        UserDefaults(suiteName: HakoAppIdentifiers.appGroup) ?? .standard
+        UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName) ?? .standard
     }
 
     static func url(from defaults: UserDefaults = appGroupDefaults) -> String {

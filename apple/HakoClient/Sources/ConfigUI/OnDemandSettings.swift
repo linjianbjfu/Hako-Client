@@ -265,7 +265,7 @@ enum OnDemandSettings {
     static let ssidsKey = "onDemand.ssids"
 
     static var appGroupDefaults: UserDefaults {
-        UserDefaults(suiteName: HakoAppIdentifiers.appGroup) ?? .standard
+        UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName) ?? .standard
     }
 
     static func configuration(

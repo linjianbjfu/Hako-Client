@@ -8,7 +8,7 @@ enum NodeSwitchSettings {
     static let key = "nodes.autoCloseOnSwitch"
 
     static var appGroupDefaults: UserDefaults {
-        UserDefaults(suiteName: HakoAppIdentifiers.appGroup) ?? .standard
+        UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName) ?? .standard
     }
 
     static func autoCloseOnSwitch(from defaults: UserDefaults = appGroupDefaults) -> Bool {
@@ -60,7 +60,7 @@ enum UDPFallbackSettings {
     static let fallbackDefault: UDPFallbackPolicy = .quic
 
     static var appGroupDefaults: UserDefaults {
-        UserDefaults(suiteName: HakoAppIdentifiers.appGroup) ?? .standard
+        UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName) ?? .standard
     }
 
      

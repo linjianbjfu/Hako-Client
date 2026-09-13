@@ -28,7 +28,7 @@ struct HakoClientApp: App {
      
      
     private static func repairPersonalRulePlacement() {
-        guard let container = HakoAppIdentifiers.appGroupContainer, let defaults = UserDefaults(suiteName: HakoAppIdentifiers.appGroup)
+        guard let container = HakoAppIdentifiers.appGroupContainer, let defaults = UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName)
         else { return }
         let working = container.appendingPathComponent("working", isDirectory: true)
         PersonalRulePlacementMigration.runIfNeeded(
@@ -251,7 +251,7 @@ struct AppShellView: View {
                     return profiles.effectiveYAML(for: active)
                 },
                 lanListenerPermitted: {
-                    LocalNetworkPermission.isPermitted(UserDefaults(suiteName: HakoAppIdentifiers.appGroup))
+                    LocalNetworkPermission.isPermitted(UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName))
                 }
             )
              

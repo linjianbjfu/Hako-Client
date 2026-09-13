@@ -1032,7 +1032,7 @@ final class ProfilesViewModel: ObservableObject {
             },
             setPermitted: {
                 LocalNetworkPermission.setPermitted(
-                    $0, in: UserDefaults(suiteName: HakoAppIdentifiers.appGroup)
+                    $0, in: UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName)
                 )
             },
             profileID: { [weak self] in self?.activeProfileID }

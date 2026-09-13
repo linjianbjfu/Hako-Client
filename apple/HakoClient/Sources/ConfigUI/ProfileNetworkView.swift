@@ -488,7 +488,7 @@ struct GlobalCoreBehaviorSettingsView: View {
      
      
     @State private var promotionNoticeCount: Int =
-        UserDefaults(suiteName: HakoAppIdentifiers.appGroup)?
+        UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName)?
             .integer(forKey: FlClashRuntimeConfig.promotionNoticeKey) ?? 0
     @State private var storedCertificateStore: String
 
@@ -526,7 +526,7 @@ struct GlobalCoreBehaviorSettingsView: View {
     }
 
     private static func currentCertificateStore() -> String {
-        UserDefaults(suiteName: HakoAppIdentifiers.appGroup)?
+        UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName)?
             .string(forKey: CertificateStorePolicy.defaultsKey)
             ?? CertificateStorePolicy.platform
     }
@@ -621,7 +621,7 @@ struct GlobalCoreBehaviorSettingsView: View {
                     ))
                     .accessibilityIdentifier("global-core.promotion-notice")
                     Button {
-                        UserDefaults(suiteName: HakoAppIdentifiers.appGroup)?
+                        UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName)?
                             .removeObject(forKey: FlClashRuntimeConfig.promotionNoticeKey)
                         promotionNoticeCount = 0
                     } label: {
@@ -908,7 +908,7 @@ struct GlobalCoreBehaviorSettingsView: View {
              
              
              
-            UserDefaults(suiteName: HakoAppIdentifiers.appGroup)?.set(
+            UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName)?.set(
                 certificateStore,
                 forKey: CertificateStorePolicy.defaultsKey
             )

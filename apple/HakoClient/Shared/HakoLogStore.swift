@@ -168,7 +168,7 @@ public final class HakoLogStore: @unchecked Sendable {
     }
 
     public static func defaultSettings() -> UserDefaults? {
-        UserDefaults(suiteName: HakoAppIdentifiers.appGroup)
+        UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName)
     }
 
     public static func defaultDirectory() -> URL? {

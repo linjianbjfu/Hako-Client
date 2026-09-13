@@ -472,7 +472,7 @@ struct ProxySharePreferences {
      
      
      
-    init(defaults: UserDefaults = UserDefaults(suiteName: HakoAppIdentifiers.appGroup) ?? .standard) {
+    init(defaults: UserDefaults = UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName) ?? .standard) {
         self.defaults = defaults
     }
 

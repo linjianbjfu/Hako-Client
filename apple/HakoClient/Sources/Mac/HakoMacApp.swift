@@ -2631,7 +2631,7 @@ private final class HakoMacSceneModel: ObservableObject {
             else { return nil }
             return self.profiles.effectiveYAML(for: active)
         }, lanListenerPermitted: {
-            LocalNetworkPermission.isPermitted(UserDefaults(suiteName: HakoAppIdentifiers.appGroup))
+            LocalNetworkPermission.isPermitted(UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName))
         })
          
          

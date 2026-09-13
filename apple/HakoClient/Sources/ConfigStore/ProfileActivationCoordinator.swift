@@ -647,7 +647,7 @@ final class ProfileActivationCoordinator {
           
          lanPermission: @escaping (Bool) -> Void = {
              LocalNetworkPermission.setPermitted(
-                 $0, in: UserDefaults(suiteName: HakoAppIdentifiers.appGroup)
+                 $0, in: UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName)
              )
          },
          now: @escaping () -> Date = Date.init,
@@ -1606,7 +1606,7 @@ final class ProfileActivationCoordinator {
             if let intentJSON = outcome.intentJSON {
                 PublishedTunIntent.publish(
                     intentJSON: intentJSON,
-                    defaults: UserDefaults(suiteName: HakoAppIdentifiers.appGroup)
+                    defaults: UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName)
                 )
             }
         } catch {

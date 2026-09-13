@@ -172,7 +172,7 @@ enum ScriptLibrary {
     static var appGroupDefaults: UserDefaults {
 
 
-        return UserDefaults(suiteName: HakoAppIdentifiers.appGroup) ?? .standard
+        return UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName) ?? .standard
     }
 
 

@@ -7,7 +7,7 @@ enum GlobalConfig {
     private static let key = "config.global"
 
     static var appGroupDefaults: UserDefaults {
-        UserDefaults(suiteName: HakoAppIdentifiers.appGroup) ?? .standard
+        UserDefaults(suiteName: HakoAppIdentifiers.preferencesSuiteName) ?? .standard
     }
 
     static func load(from defaults: UserDefaults = appGroupDefaults) -> OverrideSpec {
