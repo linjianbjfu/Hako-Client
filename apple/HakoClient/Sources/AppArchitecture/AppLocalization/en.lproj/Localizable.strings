@@ -3290,3 +3290,43 @@
 "“%@” has no subscription link yet — this configuration is a template, and that line still holds placeholder text. Open it and paste your own subscription link." = "“%@” has no subscription link yet — this configuration is a template, and that line still holds placeholder text. Open it and paste your own subscription link.";
 "↑%@ · ↓%@" = "↑%1$@ · ↓%2$@";
 "≈ figures are estimates: entry count × a measured slope, or the staged file's size on disk." = "≈ figures are estimates: entry count × a measured slope, or the staged file's size on disk.";
+
+/* Proxy server without a VPN */
+"Proxy Server" = "Proxy Server";
+"Select a configuration before starting the proxy server." = "Select a configuration before starting the proxy server.";
+"The proxy server executable is missing. Rebuild or reinstall Clash." = "The proxy server executable is missing. Rebuild or reinstall Clash.";
+"The selected configuration could not start the proxy server. Check its nodes and resources." = "The selected configuration could not start the proxy server. Check its nodes and resources.";
+"The proxy server stopped. Start sharing again to retry." = "The proxy server stopped. Start sharing again to retry.";
+"Only local network devices can connect. The proxy server stops when Clash quits or starts a VPN. Credentials are kept out of profiles and backups." = "Only local network devices can connect. The proxy server stops when Clash quits or starts a VPN. Credentials are kept out of profiles and backups.";
+"HTTP and SOCKS5 are running without a VPN. Stop and restart sharing to apply configuration changes." = "HTTP and SOCKS5 are running without a VPN. Stop and restart sharing to apply configuration changes.";
+"Wait for the VPN to finish connecting or disconnecting, then try again." = "Wait for the VPN to finish connecting or disconnecting, then try again.";
+"Start an HTTP/SOCKS5 server using the selected configuration and port. No VPN connection is required." = "Start an HTTP/SOCKS5 server using the selected configuration and port. No VPN connection is required.";
+
+/* Optional proxy authentication */
+"Connect over HTTP or SOCKS5 using an address above. No username or password is required." = "Connect over HTTP or SOCKS5 using an address above. No username or password is required.";
+"Leave both username and password empty to share without authentication. To require authentication, fill in both fields." = "Leave both username and password empty to share without authentication. To require authentication, fill in both fields.";
+"Not Required" = "Not Required";
+
+/* Standalone routing state */
+"The proxy server could not apply the selected mode or node. Select a proxy in GLOBAL and try again." = "The proxy server could not apply the selected mode or node. Select a proxy in GLOBAL and try again.";
+"The selected configuration changed. Stop and restart sharing to use it." = "The selected configuration changed. Stop and restart sharing to use it.";
+
+"Independent Proxy" = "Independent Proxy";
+
+"Enable Independent Proxy" = "Enable Independent Proxy";
+
+"VPN LAN Sharing" = "VPN LAN Sharing";
+
+"This Mac" = "This Mac";
+
+"Proxy Addresses" = "Proxy Addresses";
+
+"HTTP and SOCKS5 without a VPN" = "HTTP and SOCKS5 without a VPN";
+
+"When enabled, the proxy listens automatically when Clash opens. It follows Global, Rule, or Direct in General and does not require the Home Start(VPN) button or a VPN." = "When enabled, the proxy listens automatically when Clash opens. It follows Global, Rule, or Direct in General and does not require the Home Start(VPN) button or a VPN.";
+
+"This Mac and local network devices can connect. Closing the window keeps the proxy running; quitting Clash stops it. Credentials are kept out of profiles and backups." = "This Mac and local network devices can connect. Closing the window keeps the proxy running; quitting Clash stops it. Credentials are kept out of profiles and backups.";
+
+"Turn off the independent proxy to change the port or credentials." = "Turn off the independent proxy to change the port or credentials.";
+
+"Start(VPN)" = "Start(VPN)";

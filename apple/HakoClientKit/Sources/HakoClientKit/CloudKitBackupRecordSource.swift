@@ -6,13 +6,14 @@ import Foundation
  
  
 public final class CloudKitBackupRecordSource: BackupRecordSource, @unchecked Sendable {
-    private let container: CKContainer
+    private let container: CKContainer?
 
     public init(containerIdentifier: String) {
-        container = CKContainer(identifier: containerIdentifier)
+        container = CloudKitBackupAvailability.container(identifier: containerIdentifier)
     }
 
     public func listBackups() async throws -> [BackupRecordSummary] {
+        let container = try requireContainer()
         let status: CKAccountStatus
         do {
             status = try await container.accountStatus()
@@ -46,6 +47,7 @@ public final class CloudKitBackupRecordSource: BackupRecordSource, @unchecked Se
     }
 
     public func fetchArchive(installID: String) async throws -> Data {
+        let container = try requireContainer()
         let record: CKRecord
         do {
             record = try await container.privateCloudDatabase.record(for: CKRecord.ID(recordName: installID))
@@ -57,6 +59,13 @@ public final class CloudKitBackupRecordSource: BackupRecordSource, @unchecked Se
             throw BackupRecordSourceError.notFound(installID)
         }
         return data
+    }
+
+    private func requireContainer() throws -> CKContainer {
+        guard let container else {
+            throw BackupRecordSourceError.unavailable(CloudKitBackupAvailability.unavailableMessage)
+        }
+        return container
     }
 
     public static func name(of status: CKAccountStatus) -> String {

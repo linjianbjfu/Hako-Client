@@ -539,20 +539,22 @@ enum HakoMacMenuBarSpeed {
          
          
          
-        let height = line * 2 - 2
+        let textHeight = line * 2 - 2
+        let catSide = HakoMacStatusItemLabel.iconSide
+        let height = max(textHeight, catSide)
+        let textOffset = (height - textHeight) / 2
          
          
-        let cat18: CGFloat = 18
         let gap: CGFloat = 3
-        let size = CGSize(width: cat18 + gap + column, height: height)
+        let size = CGSize(width: catSide + gap + column, height: height)
 
         let image = NSImage(size: size, flipped: false) { _ in
             cat.draw(
                 in: CGRect(
                     x: 0,
-                    y: (height - cat18) / 2,
-                    width: cat18,
-                    height: cat18
+                    y: (height - catSide) / 2,
+                    width: catSide,
+                    height: catSide
                 ),
                 from: .zero,
                 operation: .sourceOver,
@@ -565,13 +567,13 @@ enum HakoMacMenuBarSpeed {
              
             upLine.draw(
                 at: CGPoint(
-                    x: cat18 + gap + column - upSize.width,
-                    y: height - line
+                    x: catSide + gap + column - upSize.width,
+                    y: textOffset + textHeight - line
                 ),
                 withAttributes: attributes
             )
             downLine.draw(
-                at: CGPoint(x: cat18 + gap + column - downSize.width, y: 0),
+                at: CGPoint(x: catSide + gap + column - downSize.width, y: textOffset),
                 withAttributes: attributes
             )
             return true
@@ -626,14 +628,15 @@ private final class HakoMacMenuBarTrafficFeed: ObservableObject {
     private var pending: (up: String, down: String)?
     private var subscriptions: Set<AnyCancellable> = []
 
-    init(command: ClashCommandClient) {
-        upLine = HakoMacMenuBarSpeed.up(command.traffic.upload)
-        downLine = HakoMacMenuBarSpeed.down(command.traffic.download)
+    init(command: ClashCommandClient, proxyServer: HakoMacProxyServer) {
+        upLine = HakoMacMenuBarSpeed.up(proxyServer.traffic?.up ?? command.traffic.upload)
+        downLine = HakoMacMenuBarSpeed.down(proxyServer.traffic?.down ?? command.traffic.download)
         command.$traffic
-            .sink { [weak self] traffic in
+            .combineLatest(proxyServer.$traffic)
+            .sink { [weak self] traffic, localTraffic in
                 self?.offer(
-                    up: HakoMacMenuBarSpeed.up(traffic.upload),
-                    down: HakoMacMenuBarSpeed.down(traffic.download)
+                    up: HakoMacMenuBarSpeed.up(localTraffic?.up ?? traffic.upload),
+                    down: HakoMacMenuBarSpeed.down(localTraffic?.down ?? traffic.download)
                 )
             }
             .store(in: &subscriptions)
@@ -1000,6 +1003,7 @@ private final class HakoMacSceneModel: ObservableObject {
     let stun: STUNTestModel
     let connections: ConnectionsModel
     let proxyShare: ProxyShareModel
+    private let proxyServer: HakoMacProxyServer
     let profileImports: ProfileImportRouter
     let preferences: AppPreferencesModel
 
@@ -1010,7 +1014,7 @@ private final class HakoMacSceneModel: ObservableObject {
      
      
      
-    lazy var menuBarTraffic = HakoMacMenuBarTrafficFeed(command: command)
+    lazy var menuBarTraffic = HakoMacMenuBarTrafficFeed(command: command, proxyServer: proxyServer)
 
     private lazy var connectionRequests = ConnectionRequestCoalescer(
         gestureWindow: { NSEvent.doubleClickInterval },
@@ -1068,7 +1072,8 @@ private final class HakoMacSceneModel: ObservableObject {
 
             connections = ConnectionsModel()
 
-        proxyShare = ProxyShareModel()
+        proxyShare = ProxyShareModel(timeoutNanoseconds: 30_000_000_000)
+        proxyServer = HakoMacProxyServer()
         profileImports = ProfileImportRouter()
         preferences = AppPreferencesModel()
 
@@ -1228,6 +1233,7 @@ private final class HakoMacSceneModel: ObservableObject {
         rebind()
         connections.sync(productIsVisible && command.isConnected)
         proxyShare.updateAPIAvailability(command.isConnected)
+        await proxyShare.restoreIndependentServer()
         if command.isConnected {
             await command.refreshMetadata()
             await nodes.refresh()
@@ -1406,7 +1412,7 @@ private final class HakoMacSceneModel: ObservableObject {
         if OutboundModeSelection.changesNothing(
             requested: storedMode,
             stored: profiles.outboundMode(for: profile),
-            running: command.isConnected ? command.mode : nil
+            running: proxyServer.routingStatus?.mode ?? (command.isConnected ? command.mode : nil)
         ) {
             return
         }
@@ -1488,10 +1494,13 @@ private final class HakoMacSceneModel: ObservableObject {
              
              
              
+            if proxyServer.proxyShareRunsWithoutVPN {
+                try await proxyServer.synchronizeRouting(mode: storedMode.rawValue)
+            }
             try profiles.updateOutboundMode(
                 profileID: profile.id,
                 mode: storedMode,
-                kernelCarriesTheChange: command.isConnected
+                kernelCarriesTheChange: command.isConnected || proxyServer.proxyShareRunsWithoutVPN
             )
             if command.isConnected {
                 await command.setMode(storedMode.rawValue)
@@ -2070,6 +2079,9 @@ private final class HakoMacSceneModel: ObservableObject {
     }
 
     private var outboundMode: Profile.OutboundMode {
+        if let mode = proxyServer.routingStatus?.mode, let live = Profile.OutboundMode(rawValue: mode.lowercased()) {
+            return live
+        }
         if command.isConnected,
            let live = Profile.OutboundMode(
                rawValue: command.mode.lowercased()
@@ -2109,6 +2121,9 @@ private final class HakoMacSceneModel: ObservableObject {
     }
 
     private var selectedRoute: (name: String?, delay: Int?) {
+        if outboundMode == .global, let selected = proxyServer.routingStatus?.globalProxy {
+            return (selected, nodes.delays[selected])
+        }
          
          
          
@@ -2588,7 +2603,25 @@ private final class HakoMacSceneModel: ObservableObject {
         stats.bind(session: vpn.session, command: command)
         nodes.bind(command: command)
         stun.bind(command: command)
-        proxyShare.bind(command: command)
+        proxyServer.profileID = { [weak self] in self?.profiles.activeProfileID }
+        proxyServer.routing = { [weak self] in
+            guard let self, let profile = self.currentProfile else { return MacProxyServerRouting(mode: "rule", selections: [:]) }
+            let saved = NodeProfilePreferencesStore.live()?.load().flatMap { $0.profileID == profile.id ? $0 : nil }
+            return MacProxyServerRouting(mode: self.profiles.outboundMode(for: profile).rawValue,
+                                         selections: saved?.selectedMap ?? profile.selectedMap,
+                                         preferredGroup: saved?.currentGroupName ?? profile.currentGroupName)
+        }
+        proxyServer.configuration = { [weak self] in
+            guard let self,
+                  let profile = self.profiles.profiles.first(where: { $0.id == self.profiles.activeProfileID }),
+                  let yaml = self.profiles.effectiveYAML(for: profile),
+                  let container = HakoAppIdentifiers.appGroupContainer else {
+                throw ProxyShareError.serverNeedsProfile
+            }
+            return (yaml, container.appendingPathComponent("working", isDirectory: true))
+        }
+        proxyServer.didStop = { [weak self] unexpected in self?.proxyShare.serverDidStop(unexpected: unexpected) }
+        proxyShare.bind(command: proxyServer)
          
          
          
@@ -2821,6 +2854,18 @@ private final class HakoMacSceneModel: ObservableObject {
     }
 
     private func observeRuntimeChanges() {
+        proxyServer.$routingStatus.removeDuplicates()
+            .sink { [weak self] _ in self?.scheduleRefresh() }
+            .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: .hakoProfileSelectionDidChange)
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self, self.proxyServer.proxyShareRunsWithoutVPN else { return }
+                    do { try await self.proxyServer.synchronizeRouting() }
+                    catch { self.modeRefusalMessage = error.localizedDescription }
+                }
+            }
+            .store(in: &cancellables)
          
          
          
@@ -2890,6 +2935,10 @@ private final class HakoMacSceneModel: ObservableObject {
             .sink { [weak self] status in
                 guard let self else { return }
                 command.sync(vpnStatus: status)
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.proxyShare.updateAPIAvailability(self.command.isConnected)
+                }
             }
             .store(in: &cancellables)
 
@@ -3260,10 +3309,18 @@ extension HakoMacSceneModel {
         statusMenuController = controller
         statusItem = item
         refreshStatusButton()
+        proxyShare.$status
+            .map(\.enabled)
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] enabled in
+                self?.refreshStatusButton(independentProxyRunning: enabled)
+            }
+            .store(in: &statusItemSubscriptions)
         menuBarTraffic.$upLine
             .combineLatest(menuBarTraffic.$downLine)
             .dropFirst()
-            .sink { [weak self] _ in self?.refreshStatusButton() }
+            .sink { [weak self] up, down in self?.refreshStatusButton(upLine: up, downLine: down) }
             .store(in: &statusItemSubscriptions)
          
          
@@ -3278,21 +3335,23 @@ extension HakoMacSceneModel {
             .store(in: &statusItemSubscriptions)
     }
 
-    private func refreshStatusButton(status: String? = nil) {
+    private func refreshStatusButton(status: String? = nil, upLine: String? = nil, downLine: String? = nil,
+                                     independentProxyRunning: Bool? = nil) {
         guard let button = statusItem?.button else { return }
         let showsSpeed = UserDefaults.standard.bool(forKey: HakoMacMenuBarSpeed.key)
          
          
         button.image = HakoMacStatusItemLabel.image(
             showsSpeed: showsSpeed,
-            upLine: menuBarTraffic.upLine,
-            downLine: menuBarTraffic.downLine,
-            tunnelIsUp: HakoMacQuit.tunnelIsUp(status: status ?? vpn.status)
+            upLine: upLine ?? menuBarTraffic.upLine,
+            downLine: downLine ?? menuBarTraffic.downLine,
+            isActive: HakoMacQuit.tunnelIsUp(status: status ?? vpn.status)
+                || (independentProxyRunning ?? proxyShare.status.enabled)
         )
         button.setAccessibilityLabel(HakoMacStatusItemLabel.accessibilityLabel(
             showsSpeed: showsSpeed,
-            upLine: menuBarTraffic.upLine,
-            downLine: menuBarTraffic.downLine
+            upLine: upLine ?? menuBarTraffic.upLine,
+            downLine: downLine ?? menuBarTraffic.downLine
         ))
     }
 

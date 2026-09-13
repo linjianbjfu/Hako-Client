@@ -1,0 +1,3 @@
+interface:
+  display_name: "Hako 注释与叙述清理"
+  short_description: "Remove session residue from Hako technical prose"

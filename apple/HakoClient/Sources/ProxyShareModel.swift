@@ -2,6 +2,7 @@ import Darwin
 import Foundation
 import Combine
 import Hako
+import HakoClientKit
 
 enum ProxyShareProtocol: String, CaseIterable, Hashable {
     case http
@@ -26,6 +27,7 @@ struct ProxyShareConfiguration: Equatable {
     let port: Int32
     let username: String
     let password: String
+    var authenticationRequired: Bool { !username.isEmpty || !password.isEmpty }
 }
 
 enum ProxyShareError: Error, Equatable {
@@ -45,6 +47,12 @@ enum ProxyShareError: Error, Equatable {
     case credentialStore
     case credentialRecovery
     case operationInProgress
+    case serverNeedsProfile
+    case serverUnavailable
+    case serverConfiguration
+    case serverStopped
+    case serverRouting
+    case serverRestartRequired
 }
 
 enum ProxyShareCredentialPolicy {
@@ -99,6 +107,18 @@ extension ProxyShareError: LocalizedError {
             return "The previous LAN proxy credentials could not be restored securely. Reset them before trying again."
         case .operationInProgress:
             return "Wait for the current LAN proxy change to finish."
+        case .serverNeedsProfile:
+            return "Select a configuration before starting the proxy server."
+        case .serverUnavailable:
+            return "The proxy server executable is missing. Rebuild or reinstall Clash."
+        case .serverConfiguration:
+            return "The selected configuration could not start the proxy server. Check its nodes and resources."
+        case .serverStopped:
+            return "The proxy server stopped. Start sharing again to retry."
+        case .serverRouting:
+            return "The proxy server could not apply the selected mode or node. Select a proxy in GLOBAL and try again."
+        case .serverRestartRequired:
+            return "The selected configuration changed. Stop and restart sharing to use it."
         }
     }
 }
@@ -140,7 +160,7 @@ enum ProxyShareStatusParser {
         "secret", "token", "username",
     ]
 
-    static func parse(_ json: String) throws -> ProxyShareStatus {
+    static func parse(_ json: String, allowUnauthenticated: Bool = false) throws -> ProxyShareStatus {
         guard let data = json.data(using: .utf8),
               let root = try? JSONSerialization.jsonObject(with: data),
               let object = root as? [String: Any],
@@ -153,7 +173,7 @@ enum ProxyShareStatusParser {
         guard let portNumber = object["port"] as? NSNumber,
               CFGetTypeID(portNumber) != CFBooleanGetTypeID(),
               let authenticationRequired = object["authenticationRequired"] as? Bool,
-              authenticationRequired,
+              authenticationRequired || allowUnauthenticated,
               let rawProtocols = object["protocols"] as? [String]
         else {
             throw ProxyShareError.invalidResponse
@@ -177,7 +197,7 @@ enum ProxyShareStatusParser {
             enabled: true,
             port: Int32(port),
             protocols: ProxyShareProtocol.allCases,
-            authenticationRequired: true
+            authenticationRequired: authenticationRequired
         )
     }
 }
@@ -186,7 +206,8 @@ enum ProxyShareValidator {
     static func validate(
         portText: String,
         username: String,
-        password: String
+        password: String,
+        allowUnauthenticated: Bool = false
     ) throws -> ProxyShareConfiguration {
         guard !portText.isEmpty,
               portText.unicodeScalars.allSatisfy(CharacterSet.decimalDigits.contains),
@@ -199,6 +220,9 @@ enum ProxyShareValidator {
          
          
          
+        if allowUnauthenticated && username.isEmpty && password.isEmpty {
+            return ProxyShareConfiguration(port: port, username: "", password: "")
+        }
         let trimmedUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedUsername.isEmpty {
             throw ProxyShareError.missingUsername
@@ -375,8 +399,13 @@ final class ProxyShareCredentialVault {
     private static let passwordKey = "runtime.proxy-share.password"
     private let store: CredentialStore
 
-    init(store: CredentialStore = CredentialStore()) {
-        self.store = store
+    init(store: CredentialStore? = nil) {
+        #if os(macOS)
+        // LAN sharing must not require iCloud Keychain/signing entitlements.
+        self.store = store ?? CredentialStore(backing: SecurityCredentialStoreBacking(synchronizable: false))
+        #else
+        self.store = store ?? CredentialStore()
+        #endif
     }
 
     func load() -> ProxyShareCredentials? {
@@ -466,6 +495,8 @@ struct ProxySharePreferences {
 
 @MainActor
 protocol ProxyShareCommanding: AnyObject {
+    var proxyShareWithoutVPNAvailable: Bool { get }
+    var proxyShareRunsWithoutVPN: Bool { get }
      
      
      
@@ -482,6 +513,11 @@ protocol ProxyShareCommanding: AnyObject {
     func fetchProxyShareStatus() async throws -> ProxyShareStatus
     func startProxyShare(_ configuration: ProxyShareConfiguration) async throws -> ProxyShareStatus
     func stopProxyShare() async throws -> ProxyShareStatus
+}
+
+extension ProxyShareCommanding {
+    var proxyShareWithoutVPNAvailable: Bool { false }
+    var proxyShareRunsWithoutVPN: Bool { false }
 }
 
 enum ProxySharePhase: Equatable {
@@ -502,7 +538,12 @@ enum ProxySharePhase: Equatable {
 
     var title: String {
         switch self {
-        case .unavailable: return "VPN Required"
+        case .unavailable:
+            #if os(macOS)
+            return "Unavailable"
+            #else
+            return "VPN Required"
+            #endif
         case .loading: return "Checking"
         case .disabled: return "Off"
         case .starting: return "Starting"
@@ -648,6 +689,7 @@ final class ProxyShareModel: ObservableObject {
     @Published private(set) var hasSavedPassword = false
     @Published private(set) var rememberedPort: Int32
     @Published private(set) var localAddresses: [String] = []
+    @Published private(set) var independentEnabled: Bool
 
     private weak var command: ProxyShareCommanding?
     private var profileListener: () -> ProfileListenerPorts? = { nil }
@@ -672,6 +714,8 @@ final class ProxyShareModel: ObservableObject {
     private var kernelShareGeneration: UInt64 = 0
     private let vault: ProxyShareCredentialVault
     private let preferences: ProxySharePreferences
+    private let startupPreferences: MacProxyServerStartupPreferences
+    private var didRestoreIndependentServer = false
     private let addressProvider: () -> [String]
     private let timeoutNanoseconds: UInt64
     private var apiReady = false
@@ -686,6 +730,8 @@ final class ProxyShareModel: ObservableObject {
     ) {
         self.vault = vault
         self.preferences = preferences
+        startupPreferences = MacProxyServerStartupPreferences(defaults: preferences.defaults)
+        independentEnabled = startupPreferences.isEnabled
         self.addressProvider = addressProvider
         self.timeoutNanoseconds = timeoutNanoseconds
         self.profileListenerParser = profileListenerParser
@@ -747,6 +793,7 @@ final class ProxyShareModel: ObservableObject {
      
      
     var nativeSharePortSuggestion: Int32? {
+        if command?.proxyShareWithoutVPNAvailable == true || runsWithoutVPN { return nil }
         guard let listener = currentProfileListener() else { return nil }
         let taken = Set([listener.mixedPort, listener.httpPort, listener.socksPort].compactMap { $0 })
         guard taken.contains(rememberedPort) else { return nil }
@@ -828,6 +875,14 @@ final class ProxyShareModel: ObservableObject {
      
      
     var terminalListener: ProxyTerminalListener? {
+        // The independent listener owns the endpoint even when the profile
+        // declares different ports or its listener parsing is still pending.
+        if runsWithoutVPN, status.enabled {
+            return ProxyTerminalListener(
+                source: .share, httpPort: status.port, socksPort: status.port,
+                username: status.authenticationRequired ? savedUsername : "", password: "", lanReachable: true
+            )
+        }
         if let profileYAML,
            case .preparing = preparedProfileListener.read(yaml: profileYAML()) {
             return nil
@@ -848,19 +903,58 @@ final class ProxyShareModel: ObservableObject {
         guard status.enabled else { return nil }
         return ProxyTerminalListener(
             source: .share, httpPort: status.port, socksPort: status.port,
-            username: savedUsername, password: "", lanReachable: true
+            username: status.authenticationRequired ? savedUsername : "", password: "", lanReachable: true
         )
     }
 
      
      
     func terminalPassword(for listener: ProxyTerminalListener) -> String {
-        listener.source == .share ? (savedPassword() ?? "") : listener.password
+        if listener.source == .share && !status.authenticationRequired { return "" }
+        return listener.source == .share ? (savedPassword() ?? "") : listener.password
     }
 
     func bind(command: ProxyShareCommanding) {
         self.command = command
         updateAPIAvailability(command.proxyShareAPIReady)
+    }
+
+    var runsWithoutVPN: Bool { command?.proxyShareRunsWithoutVPN == true }
+    var allowsUnauthenticated: Bool { command?.proxyShareWithoutVPNAvailable == true }
+    var independentRequiresAuthentication: Bool { startupPreferences.authenticationRequired }
+
+    /// Called after profiles and command bindings are ready, once per app run.
+    func restoreIndependentServer() async {
+        guard allowsUnauthenticated, !didRestoreIndependentServer else { return }
+        didRestoreIndependentServer = true
+        guard independentEnabled else { return }
+        await startSavedIndependentServer()
+    }
+
+    func startSavedIndependentServer() async {
+        guard allowsUnauthenticated, !status.enabled, !phase.isBusy else { return }
+        let credentials = startupPreferences.authenticationRequired ? vault.load() : nil
+        if startupPreferences.authenticationRequired,
+           credentials == nil || credentials?.username.isEmpty == true || credentials?.password.isEmpty == true {
+            publish(error: ProxyShareError.credentialRecovery)
+            return
+        }
+        _ = await start(portText: String(rememberedPort), username: credentials?.username ?? "",
+                        password: credentials?.password ?? "")
+    }
+
+    func serverDidStop(unexpected: Bool) {
+        status = .disabled
+        if unexpected {
+            // Invalidate an in-flight startup/refresh so it cannot publish a
+            // stale "running" result after the helper has already exited.
+            generation &+= 1
+            phase = .failed
+            errorMessage = ProxyShareError.serverStopped.localizedDescription
+        } else if !phase.isBusy {
+            phase = apiReady ? .disabled : .unavailable
+            errorMessage = ""
+        }
     }
 
     func updateAPIAvailability(_ ready: Bool) {
@@ -869,7 +963,8 @@ final class ProxyShareModel: ObservableObject {
          
          
          
-        let effectiveReady = ready && command?.proxyShareAPIClientReady == true
+        let effectiveReady = (ready || command?.proxyShareWithoutVPNAvailable == true)
+            && command?.proxyShareAPIClientReady == true
         guard effectiveReady != apiReady else { return }
         apiReady = effectiveReady
         generation &+= 1
@@ -891,6 +986,9 @@ final class ProxyShareModel: ObservableObject {
     func refresh() async {
         refreshAddresses()
         refreshCredentialSummary()
+        // Preserve the launch error until an explicit retry or stop. A stopped
+        // child cannot report why restoring the saved listener failed.
+        if independentEnabled, phase == .failed, !status.enabled { return }
         guard apiReady, let command, command.proxyShareAPIReady else {
             phase = .unavailable
             status = .disabled
@@ -937,19 +1035,19 @@ final class ProxyShareModel: ObservableObject {
             configuration = try ProxyShareValidator.validate(
                 portText: portText,
                 username: username,
-                password: password
+                password: password,
+                allowUnauthenticated: command.proxyShareWithoutVPNAvailable
             )
         } catch {
             publish(error: error)
             return false
         }
 
-        let previousCredentials = vault.snapshot()
+        let previousCredentials = configuration.authenticationRequired ? vault.snapshot() : nil
         do {
-            try vault.replace(
-                username: configuration.username,
-                password: configuration.password
-            )
+            if configuration.authenticationRequired {
+                try vault.replace(username: configuration.username, password: configuration.password)
+            }
         } catch {
             publish(error: error)
             return false
@@ -965,11 +1063,15 @@ final class ProxyShareModel: ObservableObject {
             }
             guard started.enabled,
                   started.port == configuration.port,
-                  started.authenticationRequired,
+                  started.authenticationRequired == configuration.authenticationRequired,
                   Set(started.protocols) == Set(ProxyShareProtocol.allCases)
             else { throw ProxyShareError.invalidResponse }
             guard token == generation, apiReady else { return false }
             preferences.save(port: configuration.port)
+            if command.proxyShareWithoutVPNAvailable {
+                startupPreferences.enable(authenticationRequired: configuration.authenticationRequired)
+                independentEnabled = true
+            }
             refreshCredentialSummary()
             apply(status: started)
             return true
@@ -981,7 +1083,7 @@ final class ProxyShareModel: ObservableObject {
                 }
             }
             do {
-                try vault.restore(previousCredentials)
+                if let previousCredentials { try vault.restore(previousCredentials) }
             } catch {
                 guard token == generation, apiReady else { return false }
                 publish(error: ProxyShareError.credentialRecovery)
@@ -1016,6 +1118,10 @@ final class ProxyShareModel: ObservableObject {
             }
             guard !stopped.enabled else { throw ProxyShareError.invalidResponse }
             guard token == generation, apiReady else { return false }
+            if command.proxyShareWithoutVPNAvailable {
+                startupPreferences.disable()
+                independentEnabled = false
+            }
             apply(status: .disabled)
             return true
         } catch {
@@ -1031,6 +1137,8 @@ final class ProxyShareModel: ObservableObject {
         do {
             try vault.remove()
             preferences.reset()
+            startupPreferences.disable()
+            independentEnabled = false
             rememberedPort = ProxySharePreferences.defaultPort
             refreshCredentialSummary()
             errorMessage = ""
@@ -1113,5 +1221,3 @@ final class ProxyShareModel: ObservableObject {
         }
     }
 }
-
-

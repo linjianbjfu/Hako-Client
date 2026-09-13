@@ -1,0 +1,3 @@
+interface:
+  display_name: "Hako 代码审查"
+  short_description: "Review Hako Swift and native runtime changes"

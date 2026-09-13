@@ -9,6 +9,7 @@ enum ProxyShareEndpointFormatter {
 
 struct ProxyShareView: View {
     @ObservedObject var model: ProxyShareModel
+    var showsVPNSharing = false
 
      
      
@@ -41,7 +42,11 @@ struct ProxyShareView: View {
      
      
      
+    #if os(macOS)
+    @State private var tab: LANShareTab = .native
+    #else
     @State private var tab: LANShareTab = .core
+    #endif
 
     enum LANShareTab: Hashable {
         case core
@@ -57,9 +62,11 @@ struct ProxyShareView: View {
          
          
         VStack(spacing: 0) {
+            #if !os(macOS)
             tabPickerBar
+            #endif
             HakoMacSettingsFormContainer {
-                switch tab {
+                switch visibleTab {
                 case .core:
                     coreSwitchSection
                      
@@ -87,13 +94,22 @@ struct ProxyShareView: View {
                     }
                     serverSection
                     securitySection
+                    #if os(macOS)
+                    Section {
+                        HakoRoutedViewLink {
+                            ProxyShareView(model: model, showsVPNSharing: true)
+                        } label: {
+                            Text("VPN LAN Sharing")
+                        }
+                    }
+                    #endif
                     if model.terminalListener != nil {
                         terminalSection
                     }
                 }
             }
         }
-        .hakoPageTitle("LAN Proxy Share")
+        .hakoPageTitle(.copy(pageTitle))
         .hakoDetailPageInsets()
         .task {
             hydrateDraft(overwriteUsername: true)
@@ -146,6 +162,22 @@ struct ProxyShareView: View {
         }
     }
 
+    private var visibleTab: LANShareTab {
+        #if os(macOS)
+        showsVPNSharing ? .core : .native
+        #else
+        tab
+        #endif
+    }
+
+    private var pageTitle: String {
+        #if os(macOS)
+        showsVPNSharing ? "VPN LAN Sharing" : "Independent Proxy"
+        #else
+        "LAN Proxy Share"
+        #endif
+    }
+
     private var actionSection: some View {
         Section {
              
@@ -153,6 +185,24 @@ struct ProxyShareView: View {
              
              
              
+            #if os(macOS)
+            Toggle("Enable Independent Proxy", isOn: Binding(
+                get: { model.independentEnabled },
+                set: { enabled in
+                    Task {
+                        if enabled { await submit() }
+                        else { _ = await model.stop() }
+                    }
+                }
+            ))
+            .disabled(model.phase.isBusy)
+            .accessibilityIdentifier("proxyShare.toggle")
+            .accessibilityValue(model.phase.title)
+            OverviewValueRow(title: "Status", value: .copy(model.phase.title))
+            if model.independentEnabled, !model.status.enabled, !model.phase.isBusy {
+                Button("Retry") { Task { await model.startSavedIndependentServer() } }
+            }
+            #else
             Button {
                 Task {
                     if model.status.enabled {
@@ -180,6 +230,8 @@ struct ProxyShareView: View {
             .accessibilityIdentifier("proxyShare.toggle")
             .accessibilityValue(model.phase.title)
 
+            #endif
+
             if model.phase.isBusy {
                 HStack(spacing: HakoTheme.Spacing.row) {
                     ProgressView()
@@ -201,6 +253,9 @@ struct ProxyShareView: View {
 
     private var connectSection: some View {
         Section {
+            #if os(macOS)
+            OverviewValueRow(title: "This Mac", value: .verbatim("127.0.0.1:\(model.status.port)"))
+            #endif
             if reachableAddresses.isEmpty {
                 HakoStatusMessage(
                     text: .copy("No usable Wi-Fi or Personal Hotspot address is available."),
@@ -221,11 +276,23 @@ struct ProxyShareView: View {
                     .id("share:\(address)")
                 }
             }
-            OverviewValueRow(title: "Username", value: .verbatim(model.savedUsername))
+            if model.status.authenticationRequired {
+                OverviewValueRow(title: "Username", value: .verbatim(model.savedUsername))
+            } else {
+                OverviewValueRow(title: "Authentication", value: .copy("Not Required"))
+            }
         } header: {
+            #if os(macOS)
+            Text("Proxy Addresses")
+            #else
             Text("Connect From Another Device")
+            #endif
         } footer: {
-            Text("Point the other device at one address above, over HTTP or SOCKS5, with this username and its saved password.")
+            if model.status.authenticationRequired {
+                Text("Point the other device at one address above, over HTTP or SOCKS5, with this username and its saved password.")
+            } else {
+                Text("Connect over HTTP or SOCKS5 using an address above. No username or password is required.")
+            }
         }
     }
 
@@ -248,7 +315,7 @@ struct ProxyShareView: View {
 
             HakoFieldRow(
                 "Username",
-                hint: "Required",
+                hint: model.allowsUnauthenticated ? "Optional" : "Required",
                 text: $username,
                 identifier: "proxyShare.username"
             )
@@ -261,7 +328,7 @@ struct ProxyShareView: View {
              
             HakoFieldRow(
                 "Password",
-                hint: ProxyShareCredentialPolicy.passwordByteRangeDescription,
+                hint: model.allowsUnauthenticated ? "Optional" : ProxyShareCredentialPolicy.passwordByteRangeDescription,
                 text: $password,
                 secure: true,
                 identifier: "proxyShare.password"
@@ -303,14 +370,18 @@ struct ProxyShareView: View {
              
              
             .hakoMacFormActionChrome()
-            .disabled(model.phase.isBusy || !model.hasSavedPassword)
+            .disabled(model.phase.isBusy || (!model.hasSavedPassword && !model.independentRequiresAuthentication))
             .accessibilityIdentifier("proxyShare.reset")
         } header: {
             Text("Security")
         } footer: {
              
              
+            #if os(macOS)
+            Text("This Mac and local network devices can connect. Closing the window keeps the proxy running; quitting Clash stops it. Credentials are kept out of profiles and backups.")
+            #else
             Text("Only private, unique-local, and link-local source addresses are accepted. Sharing closes when the VPN stops, and credentials never enter profiles, backups, logs, or diagnostics.")
+            #endif
         }
     }
 
@@ -325,7 +396,7 @@ struct ProxyShareView: View {
 #if os(macOS)
         HStack(spacing: 2) {
             tabSegment(.core, "Core", identifier: "proxyShare.tab.core")
-            tabSegment(.native, "Native Share", identifier: "proxyShare.tab.native")
+            tabSegment(.native, "Proxy Server", identifier: "proxyShare.tab.native")
         }
         .padding(2)
         .background(
@@ -637,6 +708,9 @@ struct ProxyShareView: View {
     }
 
     private var actionExplanation: String {
+        #if os(macOS)
+        return "When enabled, the proxy listens automatically when Clash opens. It follows Global, Rule, or Direct in General and does not require the Home Start(VPN) button or a VPN."
+        #else
         switch model.phase {
         case .unavailable:
             return "Connect Clash to make the authenticated local proxy available."
@@ -647,11 +721,19 @@ struct ProxyShareView: View {
         default:
             return "Starting may ask for Local Network access; Clash cannot accept nearby devices without it."
         }
+        #endif
     }
 
     private var serverExplanation: String {
-        if model.status.enabled {
+        if model.status.enabled || (model.allowsUnauthenticated && model.independentEnabled) {
+            #if os(macOS)
+            return "Turn off the independent proxy to change the port or credentials."
+            #else
             return "Stop sharing to change the port or credentials."
+            #endif
+        }
+        if model.allowsUnauthenticated {
+            return "Leave both username and password empty to share without authentication. To require authentication, fill in both fields."
         }
          
          
@@ -665,6 +747,7 @@ struct ProxyShareView: View {
         model.phase == .unavailable
             || model.phase.isBusy
             || model.status.enabled
+            || (model.allowsUnauthenticated && model.independentEnabled)
     }
 
     private var isEditingPort: Bool {
@@ -677,13 +760,25 @@ struct ProxyShareView: View {
             portText = String(model.nativeSharePortSuggestion ?? model.rememberedPort)
         }
         if overwriteUsername {
+            #if os(macOS)
+            if !model.independentRequiresAuthentication {
+                username = ""
+                password = ""
+            } else {
+                username = model.savedUsername
+                password = model.savedPassword() ?? ""
+            }
+            #else
             username = model.savedUsername
+            #endif
         }
     }
 
     private func submit() async {
         let submittedPassword = password
+        #if !os(macOS)
         password = ""
+        #endif
         _ = await model.start(
             portText: portText,
             username: username,
@@ -694,6 +789,14 @@ struct ProxyShareView: View {
 
 struct OverviewMoreSettingsCard: View {
     @ObservedObject var proxyShare: ProxyShareModel
+
+    private var overviewDetail: String {
+        #if os(macOS)
+        "HTTP and SOCKS5 without a VPN"
+        #else
+        "Authenticated HTTP and SOCKS5 for nearby devices"
+        #endif
+    }
 
     var body: some View {
         HakoOverviewCard {
@@ -710,10 +813,10 @@ struct OverviewMoreSettingsCard: View {
                     HStack(spacing: HakoTheme.Spacing.row) {
                         HakoIconWell(symbol: .network, tint: .green)
                         VStack(alignment: .leading, spacing: HakoTheme.Spacing.tight) {
-                            Text("LAN Proxy Share")
+                            Text(HakoCopy.key(HakoUtilitiesDestination.proxyShare.title))
                                 .font(.body)
                                 .foregroundStyle(.primary)
-                            Text("Authenticated HTTP and SOCKS5 for nearby devices")
+                            Text(HakoCopy.key(overviewDetail))
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -739,5 +842,3 @@ struct OverviewMoreSettingsCard: View {
         .accessibilityIdentifier("overview.card.moreSettings")
     }
 }
-
-

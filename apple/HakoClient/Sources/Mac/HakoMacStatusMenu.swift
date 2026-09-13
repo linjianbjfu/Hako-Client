@@ -286,7 +286,7 @@ extension AppleClientConnectionPhase {
 extension AppleClientConnectionIntent {
     var toolbarTitle: String {
         switch self {
-        case .connect: "START"
+        case .connect: "Start(VPN)"
         case .disconnect: "STOP"
         case .installConfiguration: "Set Up"
         case .activateSystemExtension: "Activate"
@@ -458,12 +458,13 @@ final class HakoMacStatusMenuController: NSObject, NSMenuDelegate {
  
 @MainActor
 enum HakoMacStatusItemLabel {
+    static let iconSide: CGFloat = 22
      
      
     static let dimmedCatAlpha: CGFloat = 0.5
 
-    static func image(showsSpeed: Bool, upLine: String, downLine: String, tunnelIsUp: Bool) -> NSImage? {
-        let catAlpha: CGFloat = tunnelIsUp ? 1 : dimmedCatAlpha
+    static func image(showsSpeed: Bool, upLine: String, downLine: String, isActive: Bool) -> NSImage? {
+        let catAlpha: CGFloat = isActive ? 1 : dimmedCatAlpha
         if showsSpeed,
            let drawn = HakoMacMenuBarSpeed.menuBarImage(upLine: upLine, downLine: downLine, catAlpha: catAlpha) {
             drawn.isTemplate = true
@@ -473,13 +474,12 @@ enum HakoMacStatusItemLabel {
          
         guard let cat = NSImage(named: HakoMacAsset.menuBarTemplate.rawValue) else { return nil }
         cat.isTemplate = true
-        if catAlpha == 1 { return cat }
-        let dimmed = NSImage(size: cat.size, flipped: false) { rect in
+        let icon = NSImage(size: NSSize(width: iconSide, height: iconSide), flipped: false) { rect in
             cat.draw(in: rect, from: .zero, operation: .sourceOver, fraction: catAlpha)
             return true
         }
-        dimmed.isTemplate = true
-        return dimmed
+        icon.isTemplate = true
+        return icon
     }
 
     static func accessibilityLabel(showsSpeed: Bool, upLine: String, downLine: String) -> String {
@@ -505,4 +505,3 @@ extension HakoMacStatusMenuSnapshot {
         prefersLoopbackShellCommand: false
     )
 }
-

@@ -63,6 +63,29 @@ xcodebuild -project apple/HakoClient/HakoClient.xcodeproj \
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
 ```
 
+### macOS independent proxy without a system VPN
+
+Select a configuration and open **Utilities → Independent Proxy**. Set the port and optional username/password, then turn on **Enable Independent Proxy**. Enable it manually the first time; subsequent launches of Clash restore the listener automatically. The Home **Start(VPN)** button and a system VPN are not required. This feature does not change the system proxy or routes.
+
+HTTP and SOCKS5 share one port, defaulting to `7890` (range `1024–65535`). Leave both username and password empty for anonymous access, or fill in both for authentication. Connect locally at `127.0.0.1:port`, or use the displayed LAN address from another device. Configure the proxy in the browser or other client application.
+
+The outbound mode follows **Global**, **Rule**, or **Direct** selected in **General**, and node selections apply immediately. Turn the independent proxy off and on after switching profiles or changing subscriptions/rules. Global mode requires a valid proxy node.
+
+Closing the window keeps the proxy running. Turning off **Enable Independent Proxy** stops listening and disables automatic startup. Quitting Clash stops the current service while retaining the enabled setting. VPN connection changes do not stop the independent proxy. If the VPN configuration also opens a listener, use different ports for the two services.
+
+**Status** shows the actual runtime state. An occupied port, invalid configuration, or unavailable saved credentials produces an error; correct the problem and select **Retry**. macOS may request Local Network access or incoming connection permission. The original VPN sharing settings are available under **VPN LAN Sharing** on this page.
+
+Enable **Show Speed in Menu Bar** in the menu bar menu to display the standalone server's live upload and download rates. These rates cover traffic passing through the proxy server.
+
+To test a built helper against a local HTTP origin:
+
+```sh
+python3 scripts/test_proxy_server.py \
+  .build/macos-arm64/DerivedData/Build/Products/Release/Clash.app/Contents/Helpers/HakoProxyServer
+```
+
+The test covers HTTP/SOCKS5, authentication, port conflicts, shutdown/restart, routing rules, file providers, transfer rates and idle reset. Add `--lan-host YOUR_MAC_LAN_IP` to verify the LAN listener address.
+
 ### Sign your own build
 
 Set your own bundle identifier family and Apple Developer Team ID:

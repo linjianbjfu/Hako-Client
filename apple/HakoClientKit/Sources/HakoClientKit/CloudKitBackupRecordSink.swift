@@ -5,17 +5,17 @@ import Foundation
  
  
 public final class CloudKitBackupRecordSink: BackupRecordSink, @unchecked Sendable {
-    private let container: CKContainer
+    private let container: CKContainer?
      
      
     public var diagnostics: (@Sendable (String) -> Void)?
 
     public init(containerIdentifier: String) {
-        container = CKContainer(identifier: containerIdentifier)
+        container = CloudKitBackupAvailability.container(identifier: containerIdentifier)
     }
 
     public func upsert(_ payload: BackupRecordPayload) async throws {
-        try await requireAccount()
+        let container = try await requireAccount()
         if let diagnostics {
              
              
@@ -42,7 +42,7 @@ public final class CloudKitBackupRecordSink: BackupRecordSink, @unchecked Sendab
     }
 
     public func deleteOwn(installID: String) async throws {
-        try await requireAccount()
+        let container = try await requireAccount()
         do {
             _ = try await container.privateCloudDatabase.modifyRecords(
                 saving: [], deleting: [CKRecord.ID(recordName: installID)], savePolicy: .allKeys, atomically: true
@@ -70,7 +70,10 @@ public final class CloudKitBackupRecordSink: BackupRecordSink, @unchecked Sendab
         return record
     }
 
-    private func requireAccount() async throws {
+    private func requireAccount() async throws -> CKContainer {
+        guard let container else {
+            throw BackupRecordSinkError.unavailable(CloudKitBackupAvailability.unavailableMessage)
+        }
         let status: CKAccountStatus
         do {
             status = try await container.accountStatus()
@@ -78,7 +81,7 @@ public final class CloudKitBackupRecordSink: BackupRecordSink, @unchecked Sendab
             throw BackupRecordSinkError.unavailable(error.localizedDescription)
         }
         switch status {
-        case .available: return
+        case .available: return container
         case .noAccount: throw BackupRecordSinkError.noAccount
         default:
             throw BackupRecordSinkError.unavailable(

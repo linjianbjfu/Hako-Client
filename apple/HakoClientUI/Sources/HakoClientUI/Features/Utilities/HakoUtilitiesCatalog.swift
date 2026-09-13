@@ -47,7 +47,12 @@ public enum HakoUtilitiesDestination:
         case .logs: "Logs"
         case .networkQuality: "Network Quality"
         case .stun: "STUN & NAT"
-        case .proxyShare: "LAN Proxy Share"
+        case .proxyShare:
+            #if os(macOS)
+            "Independent Proxy"
+            #else
+            "LAN Proxy Share"
+            #endif
         case .runtime: "Core Runtime"
         case .providers: "Providers"
         case .diagnosticsInbox: "Diagnostics Inbox"

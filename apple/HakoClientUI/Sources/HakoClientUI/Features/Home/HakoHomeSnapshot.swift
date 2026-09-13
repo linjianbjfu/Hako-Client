@@ -340,8 +340,16 @@ public enum HakoHomeConnectionPresenter {
              
              
              
-            primaryActionTitle: "START"
+            primaryActionTitle: startActionTitle
         )
+    }
+
+    private static var startActionTitle: String {
+        #if os(macOS)
+        "Start(VPN)"
+        #else
+        "START"
+        #endif
     }
 
     public static func semanticMode(_ raw: String) -> String {

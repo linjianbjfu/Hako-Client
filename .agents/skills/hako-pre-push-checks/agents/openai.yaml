@@ -1,0 +1,3 @@
+interface:
+  display_name: "Hako 提交前验证"
+  short_description: "Select focused Hako build and test evidence"

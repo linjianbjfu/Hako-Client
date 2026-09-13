@@ -63,6 +63,29 @@ xcodebuild -project apple/HakoClient/HakoClient.xcodeproj \
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
 ```
 
+### macOS 独立代理（无需系统 VPN）
+
+选择要使用的配置，进入 **工具 → 独立代理**，设置端口和可选的用户名、密码，然后打开“启用独立代理”。首次使用时需要手动启用；此后每次打开 Clash 都会自动恢复监听，无需点击首页“启动(VPN)”或安装系统 VPN。此功能不会修改系统代理或路由。
+
+HTTP 和 SOCKS5 使用同一个端口，默认 `7890`，范围为 `1024–65535`。用户名和密码同时留空即可免认证；如需认证，请同时填写两项。本机连接 `127.0.0.1:端口`，其他设备连接页面显示的局域网地址。浏览器等应用需要自行设置此代理。
+
+出站模式实时跟随 **常规** 中选中的全局、规则或直连，节点选择也会同步。切换配置或修改订阅、规则后，需要关闭再开启独立代理。全局模式仍需有效的代理节点。
+
+关闭窗口后代理继续运行；关闭“启用独立代理”会停止监听并取消下次自动启动；退出 Clash 会停止本次服务，但保留启用设置。独立代理不随 VPN 连接或断开而停止。如果 VPN 配置也需要监听同一端口，请为两者设置不同端口。
+
+页面中的“状态”显示实际运行结果。端口被占用、配置无效或保存的认证信息无法读取时，会显示错误；修正后点击“重试”。macOS 可能询问是否允许局域网访问或传入连接。原来随 VPN 运行的共享设置位于页面中的 **VPN 局域网共享**。
+
+在菜单栏菜单中勾选“在菜单栏显示速度”，即可查看独立代理服务的实时上传和下载速率，统计范围为经过该服务的流量。
+
+开发者可验证构建出的服务：
+
+```sh
+python3 scripts/test_proxy_server.py \
+  .build/macos-arm64/DerivedData/Build/Products/Release/Clash.app/Contents/Helpers/HakoProxyServer
+```
+
+测试使用本机 HTTP 站点，覆盖 HTTP/SOCKS5、认证、端口冲突、停止和重启、配置规则、节点文件，以及上传下载速率和空闲归零。添加 `--lan-host 本机局域网IP` 可验证局域网监听地址。
+
 ### 签名自己的构建
 
 设置自己的 Bundle ID 前缀与 Apple Developer Team ID：

@@ -10,6 +10,16 @@ protocol CredentialStoreBacking: AnyObject {
 }
 
 final class SecurityCredentialStoreBacking: CredentialStoreBacking {
+    private let synchronizable: Bool
+
+    init(synchronizable: Bool = true) {
+        self.synchronizable = synchronizable
+    }
+
+    private var synchronizationQuery: Any {
+        if synchronizable { return kSecAttrSynchronizableAny }
+        return false
+    }
      
      
      
@@ -30,7 +40,7 @@ final class SecurityCredentialStoreBacking: CredentialStoreBacking {
           
           
           
-         kSecAttrSynchronizable as String: kSecAttrSynchronizableAny]
+         kSecAttrSynchronizable as String: synchronizationQuery]
     }
 
     func set(_ value: Data, service: String, key: String) throws {
@@ -38,7 +48,7 @@ final class SecurityCredentialStoreBacking: CredentialStoreBacking {
         var add = baseQuery(service: service, key: key)
         add[kSecValueData as String] = value
         add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        add[kSecAttrSynchronizable as String] = true
+        add[kSecAttrSynchronizable as String] = synchronizable
         let status = SecItemAdd(add as CFDictionary, nil)
         guard status == errSecSuccess else {
             throw CredentialStore.CredentialError.unexpectedStatus(status)
@@ -70,7 +80,7 @@ final class SecurityCredentialStoreBacking: CredentialStoreBacking {
         let status = SecItemDelete([
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny,
+            kSecAttrSynchronizable as String: synchronizationQuery,
         ] as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw CredentialStore.CredentialError.unexpectedStatus(status)

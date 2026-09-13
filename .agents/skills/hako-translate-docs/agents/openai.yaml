@@ -1,0 +1,6 @@
+interface:
+  display_name: "Hako 双语翻译"
+  short_description: "Translate Hako docs and preserve product terms"
+
+policy:
+  allow_implicit_invocation: false

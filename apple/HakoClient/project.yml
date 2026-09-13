@@ -344,6 +344,8 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         LSApplicationCategoryType: public.app-category.utilities
         LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        NSLocalNetworkUsageDescription: Allow nearby devices to connect to the HTTP
+          and SOCKS5 proxy you start in LAN Proxy Share.
     entitlements:
       path: Resources/macOS/HakoMac.entitlements
       properties:
@@ -361,6 +363,7 @@ targets:
         - $(HAKO_ICLOUD_CONTAINER)
         com.apple.developer.ubiquity-container-identifiers:
         - $(HAKO_ICLOUD_CONTAINER)
+        com.apple.security.network.server: true
     dependencies:
     - package: HakoClientKit
     - package: HakoClientUI
@@ -372,6 +375,12 @@ targets:
     - target: HakoMacWidgets
       embed: true
     - sdk: NetworkExtension.framework
+    - target: HakoProxyServer
+      embed: true
+      link: false
+      copy:
+        destination: wrapper
+        subpath: Contents/Helpers
   HakoMacWidgets:
     type: app-extension
     platform: macOS
@@ -659,6 +668,38 @@ targets:
     - framework: ../../Hako.xcframework
       embed: false
     - sdk: NetworkExtension.framework
+  HakoProxyServer:
+    type: tool
+    platform: macOS
+    sources:
+    - ProxyServer
+    settings:
+      base:
+        PRODUCT_NAME: HakoProxyServer
+        PRODUCT_BUNDLE_IDENTIFIER: $(HAKO_BUNDLE_BASE).proxy-server
+        DEVELOPMENT_TEAM: $(HAKO_DEVELOPMENT_TEAM)
+        CODE_SIGN_STYLE: Automatic
+        CREATE_INFOPLIST_SECTION_IN_BINARY: true
+        GENERATE_INFOPLIST_FILE: false
+        SKIP_INSTALL: true
+    info:
+      path: Resources/macOS/HakoProxyServerInfo.plist
+      properties:
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleName: HakoProxyServer
+        CFBundleDisplayName: Clash Proxy Server
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSLocalNetworkUsageDescription: Allow nearby devices to use the proxy server
+          you started in Clash.
+    entitlements:
+      path: Resources/macOS/HakoProxyServer.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.inherit: true
+    dependencies:
+    - package: HakoClientKit
+    - framework: ../../Hako.xcframework
+      embed: false
 schemes:
   HakoClient:
     build:
@@ -684,3 +725,7 @@ schemes:
       config: Debug
     archive:
       config: Release
+  HakoProxyServer:
+    build:
+      targets:
+        HakoProxyServer: all

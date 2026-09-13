@@ -3290,3 +3290,43 @@
 "“%@” has no subscription link yet — this configuration is a template, and that line still holds placeholder text. Open it and paste your own subscription link." = "「%@」還沒有訂閱連結——這份設定是模板，那一行填的還是佔位文字。開啟它，把你自己的訂閱連結粘進去。";
 "↑%@ · ↓%@" = "↑%1$@ · ↓%2$@";
 "≈ figures are estimates: entry count × a measured slope, or the staged file's size on disk." = "≈ 為估算值：條數 × 實測斜率，或其檔案在磁碟的大小。";
+
+/* Proxy server without a VPN */
+"Proxy Server" = "代理伺服器";
+"Select a configuration before starting the proxy server." = "請先選擇設定，再啟動代理伺服器。";
+"The proxy server executable is missing. Rebuild or reinstall Clash." = "代理服務程式遺失，請重新編譯或安裝 Clash。";
+"The selected configuration could not start the proxy server. Check its nodes and resources." = "目前設定無法啟動代理伺服器，請檢查節點和資源。";
+"The proxy server stopped. Start sharing again to retry." = "代理伺服器已停止，請重新啟動共享。";
+"Only local network devices can connect. The proxy server stops when Clash quits or starts a VPN. Credentials are kept out of profiles and backups." = "僅允許本機和區域網路裝置連線。結束 Clash 或啟動 VPN 時，代理服務會停止。使用者名稱和密碼不會寫入設定或備份。";
+"HTTP and SOCKS5 are running without a VPN. Stop and restart sharing to apply configuration changes." = "HTTP 和 SOCKS5 代理正在執行，無需 VPN。修改設定後，請停止並重新啟動共享。";
+"Wait for the VPN to finish connecting or disconnecting, then try again." = "請等待 VPN 連線或中斷完成後重試。";
+"Start an HTTP/SOCKS5 server using the selected configuration and port. No VPN connection is required." = "使用目前設定和指定連接埠啟動 HTTP/SOCKS5 代理，無需安裝或連線系統 VPN。";
+
+/* Optional proxy authentication */
+"Connect over HTTP or SOCKS5 using an address above. No username or password is required." = "使用上方位址透過 HTTP 或 SOCKS5 連線，無需使用者名稱和密碼。";
+"Leave both username and password empty to share without authentication. To require authentication, fill in both fields." = "使用者名稱和密碼同時留空即可免驗證共享。如需驗證，請同時填寫兩項。";
+"Not Required" = "無需驗證";
+
+/* Standalone routing state */
+"The proxy server could not apply the selected mode or node. Select a proxy in GLOBAL and try again." = "代理伺服器未能套用所選模式或節點，請在 GLOBAL 中選擇代理後重試。";
+"The selected configuration changed. Stop and restart sharing to use it." = "所選設定已變更，請停止並重新啟動共享以使用新設定。";
+
+"Independent Proxy" = "獨立代理";
+
+"Enable Independent Proxy" = "啟用獨立代理";
+
+"VPN LAN Sharing" = "VPN 區域網路共享";
+
+"This Mac" = "本機";
+
+"Proxy Addresses" = "代理位址";
+
+"HTTP and SOCKS5 without a VPN" = "無需 VPN 的 HTTP 和 SOCKS5 代理";
+
+"When enabled, the proxy listens automatically when Clash opens. It follows Global, Rule, or Direct in General and does not require the Home Start(VPN) button or a VPN." = "啟用後，每次開啟 Clash 都會自動監聽。出站模式跟隨「一般」中的全域、規則或直連，無需點擊首頁「啟動(VPN)」，也無需 VPN。";
+
+"This Mac and local network devices can connect. Closing the window keeps the proxy running; quitting Clash stops it. Credentials are kept out of profiles and backups." = "本機和區域網路裝置均可連線。關閉視窗後代理繼續執行；結束 Clash 後停止。使用者名稱和密碼不會寫入設定檔或備份。";
+
+"Turn off the independent proxy to change the port or credentials." = "修改連接埠、使用者名稱或密碼前，請先關閉獨立代理。";
+
+"Start(VPN)" = "啟動(VPN)";
