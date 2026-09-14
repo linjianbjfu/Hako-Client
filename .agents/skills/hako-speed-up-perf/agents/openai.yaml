@@ -1,3 +1,0 @@
-interface:
-  display_name: "Hako 性能优化"
-  short_description: "Measure Hako startup and native UI performance"

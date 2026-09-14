@@ -1,3 +1,0 @@
-interface:
-  display_name: "Hako 测试可靠性"
-  short_description: "Diagnose Hako timing and resource test failures"
